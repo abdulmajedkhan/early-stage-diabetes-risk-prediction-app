@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import joblib
+import os
 
 # Load the trained model
 model = joblib.load("best_diabetes_model.pkl")
@@ -12,16 +13,49 @@ feature_names = ['Age', 'Gender', 'Polyuria', 'Polydipsia', 'Sudden Weight Loss'
                  'Itching', 'Irritability', 'Delayed Healing', 'Partial Paresis',
                  'Muscle Stiffness', 'Alopecia', 'Obesity']
 
-def predict_diabetes(input_data):
+def predict_diabetes(input_data, name):
     input_array = np.array(input_data).reshape(1, -1)
-    prediction = model.predict(input_array)
-    return "Patient Diagnosed with early-stage diabetes" if prediction[0] == 1 else "Individual assessed as low-risk for diabetes "
+    prediction = model.predict(input_array)[0]
+
+    if prediction == 1:
+        message = f"{name} Patient Diagnosed with early-stage diabetes"
+    else:
+        message = "Individual assessed as low-risk for diabetes"
+
+    return message
+
+def save_user_data(name, contact, address, input_data, prediction_message):
+    # Convert 0/1 to Yes/No or Male/Female for CSV
+    readable_data = []
+    for i, val in enumerate(input_data):
+        if feature_names[i] == 'Age':
+            readable_data.append(val)
+        elif feature_names[i] == 'Gender':
+            readable_data.append("Male" if val == 1 else "Female")
+        else:
+            readable_data.append("Yes" if val == 1 else "No")
+
+    user_data = [name, contact, address] + readable_data + [prediction_message]
+    columns = ['Name', 'Contact', 'Address'] + feature_names + ['Prediction']
+    df_new = pd.DataFrame([user_data], columns=columns)
+
+    # Save or append to CSV
+    if os.path.exists("user_data.csv"):
+        df_existing = pd.read_csv("user_data.csv")
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_combined = df_new
+
+    df_combined.to_csv("user_data.csv", index=False)
 
 # Streamlit UI
 st.title("Early-Stage Diabetes Prediction")
 st.write("Enter the following details to predict the risk of diabetes.")
 
 # User Inputs
+name = st.text_input("Enter your name")
+contact = st.text_input("Enter your contact")
+address = st.text_input("Enter your address")
 age = st.number_input("Age", min_value=1, max_value=120, value=30)
 gender = st.radio("Gender", ["Male", "Female"])
 polyuria = st.radio("Polyuria (Frequent Urination)", ["Yes", "No"])
@@ -39,7 +73,7 @@ muscle_stiffness = st.radio("Muscle Stiffness", ["Yes", "No"])
 alopecia = st.radio("Alopecia (Hair Loss)", ["Yes", "No"])
 obesity = st.radio("Obesity", ["Yes", "No"])
 
-# Encode Inputs
+# Encode Inputs for model
 input_data = [
     age,
     1 if gender == "Male" else 0,
@@ -61,5 +95,10 @@ input_data = [
 
 # Predict Button
 if st.button("Predict Diabetes"):
-    result = predict_diabetes(input_data)
-    st.subheader(f"Prediction: {result}")
+    prediction_message = predict_diabetes(input_data, name)
+    st.subheader(f"Prediction: {prediction_message}")
+
+    # Save user data with readable input and prediction
+    save_user_data(name, contact, address, input_data, prediction_message)
+
+    st.success("User data saved successfully!")
