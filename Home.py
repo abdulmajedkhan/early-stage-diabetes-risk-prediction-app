@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -48,6 +50,9 @@ def save_user_data(name, contact, address, input_data, prediction_message):
 
     df_combined.to_csv("user_data.csv", index=False)
 
+def is_valid_contact(contact):
+    return re.fullmatch(r"^\d{10,15}$", contact) is not None
+
 # Streamlit UI
 st.title("Early-Stage Diabetes Prediction")
 st.write("Enter the following details to predict the risk of diabetes.")
@@ -95,10 +100,16 @@ input_data = [
 
 # Predict Button
 if st.button("Predict Diabetes"):
-    prediction_message = predict_diabetes(input_data, name)
-    st.subheader(f"Prediction: {prediction_message}")
+    if not name.strip() or not contact.strip() or not address.strip():
+        st.error("Please fill in all required fields: Name, Contact, and Address.")
+    elif not is_valid_contact(contact):
+        st.error("Please Enter a valid Contact Number.")
+    else:
+        prediction_message = predict_diabetes(input_data, name)
+        st.subheader(f"Prediction: {prediction_message}")
 
-    # Save user data with readable input and prediction
-    save_user_data(name, contact, address, input_data, prediction_message)
+        # Save user data with readable input and prediction
+        save_user_data(name, contact, address, input_data, prediction_message)
 
-    st.success("User data saved successfully!")
+        st.success("User data saved successfully!")
+
